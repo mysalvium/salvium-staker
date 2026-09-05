@@ -20,6 +20,43 @@ externally managed Docker network shared only by `salviumd` and the two wallet
 services. Docker marks both networks internal, so they have no ordinary Internet
 gateway.
 
+## How wallets reach the node
+
+The two automated wallet-RPC containers connect to `salviumd:19081`. Docker
+resolves `salviumd` by container name on the private
+`salvium_privileged_rpc` network, so the staker does not depend on a host or
+container IP address. With the companion node stack, leave these `.env` values
+unchanged:
+
+```text
+PRIVILEGED_RPC_NETWORK=salvium_privileged_rpc
+DAEMON_ADDRESS=salviumd:19081
+```
+
+Verify the connection boundary before starting the staker:
+
+```sh
+docker network inspect salvium_privileged_rpc \
+  --format '{{range .Containers}}{{println .Name}}{{end}}'
+```
+
+The output must include `salviumd`. Once the staker is running, it also includes
+the two wallet-RPC containers. It must not include the orchestrator or unrelated
+services.
+
+Normal desktop wallets use the node stack's restricted host endpoint instead:
+
+```text
+YOUR-SERVER-LAN-IP:19089
+```
+
+In the GUI, open **Settings**, find the **Node** settings, choose a remote or
+custom node, and enter the server LAN address and port `19089`. The equivalent
+CLI option is `--daemon-address YOUR-SERVER-LAN-IP:19089`. This endpoint is for
+a trusted LAN or VPN only and must not be forwarded by the router. Wallet
+computers may use DHCP when the intended LAN subnet is allowed by the node
+firewall.
+
 ## Router rules for the companion node stack
 
 The staker does not change the router guidance for

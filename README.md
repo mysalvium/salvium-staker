@@ -73,7 +73,69 @@ STACK=/mnt/sharedrive/apps/salvium/staker ./scripts/prepare-host.sh
 The command creates the folders and random RPC passwords. It does not overwrite
 an existing wallet, password, configuration, or `.env` file.
 
-### 3. Copy both wallets
+### 3. Connect the wallets to your Salvium node
+
+There are two different wallet-to-node connections. They deliberately use
+different addresses:
+
+| Wallet client | Node address | Where it is allowed |
+|---|---|---|
+| The two automated wallet-RPC containers in this project | `salviumd:19081` | Private Docker network only |
+| A normal desktop wallet on your computer | `YOUR-SERVER-LAN-IP:19089` | Trusted LAN or VPN only |
+
+#### Automated wallets in this project
+
+If you installed
+[`mysalvium/salvium-node-p2pool`](https://github.com/mysalvium/salvium-node-p2pool)
+on the same Docker server, the connection is already configured. The staker
+uses the node container name rather than a changing IP address.
+
+Confirm the private node network contains `salviumd`:
+
+```sh
+docker network inspect salvium_privileged_rpc \
+  --format '{{range .Containers}}{{println .Name}}{{end}}'
+```
+
+Then confirm these two lines in the private staker `.env`:
+
+```sh
+grep -E '^(PRIVILEGED_RPC_NETWORK|DAEMON_ADDRESS)=' \
+  /mnt/sharedrive/apps/salvium/staker/.env
+```
+
+The result should be:
+
+```text
+PRIVILEGED_RPC_NETWORK=salvium_privileged_rpc
+DAEMON_ADDRESS=salviumd:19081
+```
+
+Do not replace this with the TrueNAS LAN address when using the companion node
+stack. Port `19081` is the node's elevated RPC interface, so it must remain on
+the private Docker network and must never be published or forwarded by the
+router. If the network check does not show `salviumd`, finish starting the node
+stack before continuing.
+
+#### Desktop wallets on other computers
+
+Desktop wallets do **not** use the private elevated port. In the Salvium GUI,
+open **Settings**, find the **Node** settings, choose a remote or custom node,
+and enter your Docker server's LAN address with port `19089`. If the wallet has
+one address box, enter `YOUR-SERVER-LAN-IP:19089`.
+
+For the command-line wallet, the equivalent is:
+
+```sh
+salvium-wallet-cli --daemon-address YOUR-SERVER-LAN-IP:19089
+```
+
+Port `19089` is the restricted wallet-facing RPC endpoint from the companion
+node stack. Use it only from your trusted LAN or through a VPN. Never forward
+`19089` to the public Internet. Changing DHCP addresses on the wallet computers
+is fine when the node firewall trusts the whole intended LAN subnet.
+
+### 4. Copy both wallets
 
 Each wallet has two important files: the wallet cache and the matching `.keys`
 file. Copy both while preserving the names shown below:
@@ -95,7 +157,7 @@ find /mnt/sharedrive/apps/salvium/staker/wallets -type f -exec chmod 600 {} \;
 
 Never copy a seed phrase into this project or into Git.
 
-### 4. Store the wallet passwords
+### 5. Store the wallet passwords
 
 Run the interactive helper. Your typing is hidden:
 
@@ -107,7 +169,7 @@ Passwords are private files under `secrets/`; they are **not** values in
 `.env`. The `.env` file contains non-secret deployment settings and the two
 on/off controls.
 
-### 5. Review the staking rules
+### 6. Review the staking rules
 
 Open:
 
@@ -120,7 +182,7 @@ consolidates them to itself, and stakes once a single output exceeds 15 SAL.
 The public wallet stakes any eligible amount of at least 34 SAL. See
 [`docs/operations.md`](docs/operations.md) before changing these values.
 
-### 6. Build verified images
+### 7. Build verified images
 
 ```sh
 cd /mnt/sharedrive/apps/salvium/staker-repo
@@ -130,7 +192,7 @@ cd /mnt/sharedrive/apps/salvium/staker-repo
 The build stops immediately if the official archive does not match its trusted
 checksum.
 
-### 7. Install the protected stake executor
+### 8. Install the protected stake executor
 
 ```sh
 ./scripts/install-executor.sh
@@ -149,7 +211,7 @@ persistent root-only Salvium operations directory and cannot be replaced by the
 wallet containers. TrueNAS keeps its system filesystem read-only, so this data
 pool location is intentional.
 
-### 8. Start in observe mode
+### 9. Start in observe mode
 
 ```sh
 cd /mnt/sharedrive/apps/salvium/staker-repo
@@ -162,7 +224,7 @@ docker compose \
 Observe mode is the default. Leave it running for at least one full polling
 cycle and confirm that both wallet services become `healthy`.
 
-### 9. Enable automatic staking
+### 10. Enable automatic staking
 
 When the balances, output counts, and proposed actions look correct:
 
