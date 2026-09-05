@@ -13,16 +13,16 @@ umask 077
 
 EXECUTOR_CONFIG="${EXECUTOR_CONFIG:-/mnt/sharedrive/apps/salvium/data/operations/host/salvium-staker-executor.conf}"
 if [ -e "$EXECUTOR_CONFIG" ]; then
-    [ -f "$EXECUTOR_CONFIG" ] && [ ! -L "$EXECUTOR_CONFIG" ] || {
+    if [ ! -f "$EXECUTOR_CONFIG" ] || [ -L "$EXECUTOR_CONFIG" ]; then
         echo "executor config is not a safe regular file" >&2
         exit 1
-    }
+    fi
     config_owner=$(stat -c %u "$EXECUTOR_CONFIG")
     config_mode=$(stat -c %a "$EXECUTOR_CONFIG")
-    [ "$config_owner" -eq 0 ] && [ $((0$config_mode & 0022)) -eq 0 ] || {
+    if [ "$config_owner" -ne 0 ] || [ $((0$config_mode & 0022)) -ne 0 ]; then
         echo "executor config must be root-owned and not group/world writable" >&2
         exit 1
-    }
+    fi
     # The installer makes this file root-owned and non-writable by other users.
     # shellcheck disable=SC1090
     . "$EXECUTOR_CONFIG"
@@ -85,7 +85,9 @@ restart_wallet() {
 }
 
 cleanup() {
+    # shellcheck disable=SC2317  # Called indirectly by the signal/exit trap.
     restart_wallet || true
+    # shellcheck disable=SC2317  # Called indirectly by the signal/exit trap.
     rmdir "$LOCKDIR" 2>/dev/null || true
 }
 
@@ -220,7 +222,7 @@ handle_wallet() {
         return 0
     fi
     [ ! -L "$result" ] || { log "$name: rejected symlinked result path"; return 0; }
-    if [ -f "$result" ] && [ "$result" -nt "$request" ]; then
+    if [ -f "$result" ] && [ "$(stat -c %Y "$result")" -gt "$(stat -c %Y "$request")" ]; then
         return 0
     fi
 
@@ -257,17 +259,17 @@ handle_wallet() {
         write_result "failed" "$name" "$amount" "wallet directory is missing or unsafe"
         return 0
     }
-    [ -f "$secret_file" ] && [ ! -L "$secret_file" ] || {
+    if [ ! -f "$secret_file" ] || [ -L "$secret_file" ]; then
         write_result "failed" "$name" "$amount" "wallet password file is missing or unsafe"
         return 0
-    }
+    fi
     secret_mode=$(stat -c %a "$secret_file")
     secret_owner=$(stat -c %u "$secret_file")
-    [ "$secret_owner" -eq "$EXPECTED_REQUEST_UID" ] && [ $((0$secret_mode & 0077)) -eq 0 ] || {
+    if [ "$secret_owner" -ne "$EXPECTED_REQUEST_UID" ] || [ $((0$secret_mode & 0077)) -ne 0 ]; then
         write_result "failed" "$name" "$amount" "wallet password file permissions are too broad"
         log "$name: rejected secret file owner=$secret_owner mode=$secret_mode"
         return 0
-    }
+    fi
 
     actual_image=$(docker inspect --format '{{.Config.Image}}' "$container" 2>/dev/null || true)
     [ "$actual_image" = "$IMAGE" ] || {

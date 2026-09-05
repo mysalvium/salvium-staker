@@ -2,7 +2,7 @@
 # Build immutable, checksum-verified local images for the Compose stack.
 set -eu
 
-DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 cd "$DIR"
 
 SALVIUM_VERSION="${SALVIUM_VERSION:-v1.1.3c}"
