@@ -16,26 +16,26 @@ RPC_USER="${RPC_USER:-sal_rpc}"
 RPC_PORT="${RPC_PORT:-18082}"
 LOG_LVL="${LOG_LEVEL:-1}"
 
-[ -f /run/secrets/wallet_password ] && [ ! -L /run/secrets/wallet_password ] || {
+if [ ! -f /run/secrets/wallet_password ] || [ -L /run/secrets/wallet_password ]; then
   echo "wallet password secret is missing or unsafe" >&2
   exit 1
-}
-[ -f /run/secrets/rpc_password ] && [ ! -L /run/secrets/rpc_password ] || {
+fi
+if [ ! -f /run/secrets/rpc_password ] || [ -L /run/secrets/rpc_password ]; then
   echo "RPC password secret is missing or unsafe" >&2
   exit 1
-}
+fi
 RPC_PASS="$(tr -d '\r\n' < /run/secrets/rpc_password)"
 [ -n "$RPC_PASS" ] || { echo "RPC password secret is empty" >&2; exit 1; }
 
 # /wallet is a writable bind mount; wallet-rpc needs a place for its log + cache.
-[ -f "/wallet/${WALLET_FILE}" ] && [ ! -L "/wallet/${WALLET_FILE}" ] || {
+if [ ! -f "/wallet/${WALLET_FILE}" ] || [ -L "/wallet/${WALLET_FILE}" ]; then
   echo "wallet cache file is missing or unsafe" >&2
   exit 1
-}
-[ -f "/wallet/${WALLET_FILE}.keys" ] && [ ! -L "/wallet/${WALLET_FILE}.keys" ] || {
+fi
+if [ ! -f "/wallet/${WALLET_FILE}.keys" ] || [ -L "/wallet/${WALLET_FILE}.keys" ]; then
   echo "wallet keys file is missing or unsafe" >&2
   exit 1
-}
+fi
 if [ -e /wallet/logs ] && { [ -L /wallet/logs ] || [ ! -d /wallet/logs ]; }; then
   echo "wallet log path is unsafe" >&2
   exit 1

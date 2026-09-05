@@ -2,7 +2,7 @@
 # Download official Salvium release archive(s) and verify published SHA-256.
 set -eu
 
-ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+ROOT=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 VERSION="${SALVIUM_VERSION:-v1.1.3c}"
 CHECKSUMS="$ROOT/checksums/salvium-${VERSION}.sha256"
 BASE_URL="https://github.com/salvium/salvium/releases/download/${VERSION}"

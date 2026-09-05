@@ -2,7 +2,7 @@
 # Pinned Trivy source/config/secret/image scanning plus SPDX SBOM generation.
 set -Eeuo pipefail
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 REPO_DIR=$(dirname -- "$SCRIPT_DIR")
 ENV_FILE=${1:-$REPO_DIR/.env.example}
 MODE=${2:-full}

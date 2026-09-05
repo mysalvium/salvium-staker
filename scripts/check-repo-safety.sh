@@ -2,7 +2,7 @@
 # Fast fail-closed checks for files and credential formats that must not be Git-tracked.
 set -euo pipefail
 
-repo=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+repo=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 cd "$repo"
 
 for forbidden in .env .portainer-token config/wallets.yml; do

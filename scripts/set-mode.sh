@@ -21,7 +21,10 @@ case "$mode" in
   *) echo "Usage: $0 observe|consolidate|live" >&2; exit 2 ;;
 esac
 
-[ -f "$ENV_FILE" ] && [ ! -L "$ENV_FILE" ] || { echo "Unsafe or missing .env: $ENV_FILE" >&2; exit 1; }
+if [ ! -f "$ENV_FILE" ] || [ -L "$ENV_FILE" ]; then
+  echo "Unsafe or missing .env: $ENV_FILE" >&2
+  exit 1
+fi
 tmp=$(mktemp "${ENV_FILE}.XXXXXX")
 trap 'rm -f "$tmp"' EXIT INT TERM HUP
 awk -v consolidation="$consolidation" -v staking="$staking" '

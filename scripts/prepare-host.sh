@@ -3,7 +3,7 @@
 set -eu
 
 STACK="${STACK:-/mnt/sharedrive/apps/salvium/staker}"
-SOURCE=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+SOURCE=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 
 [ "$(id -u)" -eq 0 ] || { echo "Run this script as root on the Docker host." >&2; exit 1; }
 

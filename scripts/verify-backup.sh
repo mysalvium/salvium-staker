@@ -4,7 +4,10 @@ set -eu
 
 [ "$#" -eq 1 ] || { echo "Usage: $0 /path/to/salvium-staker-....tar.zst" >&2; exit 2; }
 archive="$1"
-[ -f "$archive" ] && [ ! -L "$archive" ] || { echo "Backup is missing or unsafe." >&2; exit 1; }
+if [ ! -f "$archive" ] || [ -L "$archive" ]; then
+  echo "Backup is missing or unsafe." >&2
+  exit 1
+fi
 [ -f "$archive.sha256" ] || { echo "Missing checksum sidecar: $archive.sha256" >&2; exit 1; }
 
 (cd "$(dirname "$archive")" && sha256sum -c "$(basename "$archive").sha256")
