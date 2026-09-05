@@ -1,0 +1,26 @@
+poll_interval_seconds: 600
+
+wallets:
+  - name: public
+    rpc_url: http://wallet-rpc-public:18082/json_rpc
+    rpc_user: sal_rpc
+    rpc_password_file: /run/secrets/public_rpc_password
+    account_index: 0
+    asset: SAL1
+    min_stake_sal: 34
+    stake_fee_reserve_sal: 0.1
+    keep_liquid_sal: 0
+    consolidate_when_outputs_over: 60
+    stake_when_single_output_over_sal: 0
+
+  - name: miner
+    rpc_url: http://wallet-rpc-miner:18082/json_rpc
+    rpc_user: sal_rpc
+    rpc_password_file: /run/secrets/miner_rpc_password
+    account_index: 0
+    asset: SAL1
+    min_stake_sal: 1
+    stake_fee_reserve_sal: 0.1
+    keep_liquid_sal: 0
+    consolidate_when_outputs_over: 25
+    stake_when_single_output_over_sal: 15

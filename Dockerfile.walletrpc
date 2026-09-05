@@ -1,0 +1,53 @@
+# salvium-wallet-rpc, pinned to the network's current hard-fork release.
+#
+# Your node and CLI both report v1.1.3c-release, and the network is past HF13,
+# so the wallet binary MUST be v1.1.x+. We pin exactly and verify the SHA-256
+# of the official release archive before trusting it.
+#
+# Default target is linux x86_64 (TrueNAS SCALE on x86). If your box is arm64,
+# switch the two ARGs below to the aarch64 values in the comment.
+
+FROM ubuntu:22.04@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
+
+ARG SALVIUM_VERSION=v1.1.3c
+ARG TARGETARCH=amd64
+
+COPY checksums/ /opt/salvium-checksums/
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl unzip jq \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN case "$TARGETARCH" in \
+      amd64) SALVIUM_ARCH=x86_64 ;; \
+      arm64) SALVIUM_ARCH=aarch64 ;; \
+      *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && SALVIUM_ZIP="salvium-${SALVIUM_VERSION}-ubuntu22.04-linux-${SALVIUM_ARCH}.zip" \
+ && SALVIUM_SHA256="$(awk -v file="$SALVIUM_ZIP" '$2 == file {print $1}' "/opt/salvium-checksums/salvium-${SALVIUM_VERSION}.sha256")" \
+ && test -n "$SALVIUM_SHA256" \
+ && curl --fail --show-error --location --proto '=https' --tlsv1.2 \
+      --retry 5 --retry-all-errors -o /tmp/salvium.zip \
+      "https://github.com/salvium/salvium/releases/download/${SALVIUM_VERSION}/${SALVIUM_ZIP}" \
+ && echo "${SALVIUM_SHA256}  /tmp/salvium.zip" | sha256sum -c - \
+ && unzip -j -o /tmp/salvium.zip -d /usr/local/bin \
+ && rm /tmp/salvium.zip \
+ && chmod 0755 /usr/local/bin/salvium-wallet-rpc /usr/local/bin/salvium-wallet-cli \
+ && groupadd --gid 1000 sal \
+ && useradd --uid 1000 --gid 1000 --create-home sal \
+ && /usr/local/bin/salvium-wallet-rpc --version
+
+COPY walletrpc-entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY balance-logger.sh /usr/local/bin/balance-logger.sh
+COPY walletrpc-healthcheck.sh /usr/local/bin/walletrpc-healthcheck.sh
+# Explicit mode: COPY preserves the host file's perms, which may be 0770 and
+# therefore unreadable by the non-root (UID 1000) runtime user.
+RUN chmod 0755 /usr/local/bin/entrypoint.sh \
+ && chmod 0755 /usr/local/bin/balance-logger.sh \
+ && chmod 0755 /usr/local/bin/walletrpc-healthcheck.sh
+
+# Runs as 1000:1000 (set in compose). /wallet is the only writable mount.
+USER 1000:1000
+HEALTHCHECK --interval=30s --timeout=20s --start-period=3m --retries=5 \
+  CMD ["/usr/local/bin/walletrpc-healthcheck.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

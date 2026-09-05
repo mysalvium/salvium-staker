@@ -1,0 +1,182 @@
+name: salvium-staker
+
+services:
+  wallet-rpc-public:
+    image: "salvium-staker/wallet-rpc:${SALVIUM_VERSION:-v1.1.3c}-hardened1"
+    build:
+      context: .
+      dockerfile: Dockerfile.walletrpc
+      args:
+        SALVIUM_VERSION: "${SALVIUM_VERSION:-v1.1.3c}"
+    container_name: salvium-staker-wallet-rpc-public
+    user: "1000:1000"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: "2.0"
+    restart: unless-stopped
+    stop_grace_period: 2m
+    environment:
+      WALLET_FILE: "${PUBLIC_WALLET_FILE:-Public Salvium Wallet}"
+      DAEMON_ADDRESS: "${DAEMON_ADDRESS:-salviumd:19081}"
+      RPC_USER: "${RPC_USER:-sal_rpc}"
+      RPC_PORT: "18082"
+      LOG_LEVEL: "${WALLET_LOG_LEVEL:-1}"
+      BALANCE_LOG_INTERVAL: "${BALANCE_LOG_INTERVAL:-600}"
+    volumes:
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/wallets/public"
+        target: /wallet
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/public_wallet_password"
+        target: /run/secrets/wallet_password
+        read_only: true
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/public_rpc_password"
+        target: /run/secrets/rpc_password
+        read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/walletrpc-healthcheck.sh"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 3m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - internal
+      - privileged_rpc
+
+  wallet-rpc-miner:
+    image: "salvium-staker/wallet-rpc:${SALVIUM_VERSION:-v1.1.3c}-hardened1"
+    build:
+      context: .
+      dockerfile: Dockerfile.walletrpc
+      args:
+        SALVIUM_VERSION: "${SALVIUM_VERSION:-v1.1.3c}"
+    container_name: salvium-staker-wallet-rpc-miner
+    user: "1000:1000"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 1g
+    cpus: "2.0"
+    restart: unless-stopped
+    stop_grace_period: 2m
+    environment:
+      WALLET_FILE: "${MINER_WALLET_FILE:-Salvium Miner Wallet}"
+      DAEMON_ADDRESS: "${DAEMON_ADDRESS:-salviumd:19081}"
+      RPC_USER: "${RPC_USER:-sal_rpc}"
+      RPC_PORT: "18082"
+      LOG_LEVEL: "${WALLET_LOG_LEVEL:-1}"
+      BALANCE_LOG_INTERVAL: "${BALANCE_LOG_INTERVAL:-600}"
+    volumes:
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/wallets/miner"
+        target: /wallet
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/miner_wallet_password"
+        target: /run/secrets/wallet_password
+        read_only: true
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/miner_rpc_password"
+        target: /run/secrets/rpc_password
+        read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/walletrpc-healthcheck.sh"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 3m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - internal
+      - privileged_rpc
+
+  orchestrator:
+    image: "salvium-staker/orchestrator:${STACK_RELEASE:-2.2.0}"
+    build:
+      context: ./orchestrator
+    container_name: salvium-staker-orchestrator
+    user: "1000:1000"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: "0.50"
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      CONFIG: /config/wallets.yml
+      LOG_DIR: /logs
+      POLL_INTERVAL_SECONDS: "${POLL_INTERVAL_SECONDS:-600}"
+      ENABLE_CONSOLIDATION: "${ENABLE_CONSOLIDATION:-false}"
+      ENABLE_STAKING: "${ENABLE_STAKING:-false}"
+      HEALTH_MAX_AGE_SECONDS: "${HEALTH_MAX_AGE_SECONDS:-1800}"
+    volumes:
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/config/wallets.yml"
+        target: /config/wallets.yml
+        read_only: true
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/logs"
+        target: /logs
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/public_rpc_password"
+        target: /run/secrets/public_rpc_password
+        read_only: true
+      - type: bind
+        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/miner_rpc_password"
+        target: /run/secrets/miner_rpc_password
+        read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 5m
+    depends_on:
+      wallet-rpc-public:
+        condition: service_healthy
+      wallet-rpc-miner:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - internal
+
+networks:
+  internal:
+    internal: true
+  privileged_rpc:
+    external: true
+    name: "${PRIVILEGED_RPC_NETWORK:-salvium_privileged_rpc}"

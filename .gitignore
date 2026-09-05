@@ -1,0 +1,52 @@
+# Local secrets: never commit or upload these files.
+.env
+.env.*
+!.env.example
+.portainer-token
+secrets/
+*.seed
+*.mnemonic
+*.key
+*.keys
+
+# Wallet databases and runtime state.
+wallets/
+logs/
+backups/
+*.tar
+*.tar.*
+*.zip
+config/wallets.yml
+state.json
+audit.jsonl*
+stake-request-*.json
+stake-result-*.json
+stake-output-*.log
+
+# Local deployment overrides and generated reports.
+docker-compose.override.yml
+compose.override.yml
+reports/
+.security-cache/
+.security-reports/
+*.sbom.json
+*.sarif
+
+# Python and test caches.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Editor and operating-system files.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.tmp
+*.bak
+*~
