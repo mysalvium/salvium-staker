@@ -24,10 +24,18 @@
 ## Host permissions
 
 The source checkout is not a root trust boundary. A root scheduled task must run
-only `/mnt/sharedrive/apps/salvium/data/operations/host/salvium-stake-executor`.
+only `/mnt/sharedrive/salvium-private/operations/host/salvium-stake-executor`.
 That file, its adjacent configuration, and the dedicated operations/state
 directories must be root-owned and not group/world writable. The executor
-refuses unsafe file ownership or modes.
+refuses unsafe file ownership, modes, and non-trivial NFSv4 or POSIX ACLs.
+
+The checkout, private runtime, and root executor must be stored in a dedicated
+non-shared dataset such as `sharedrive/salvium-private`. Do not use a directory
+inside an SMB share or a TrueNAS Apps dataset with inherited `builtin_users` or
+`apps` ACEs. On NFSv4 filesystems, `chmod 0600` can leave named ACEs effective;
+ordinary Unix mode output is not sufficient evidence that a path is private.
+The host must provide `getfacl`; TrueNAS also provides `nfs4xdr_getfacl` for its
+native ZFS ACLs. The executor fails closed when it cannot inspect an ACL.
 
 The private runtime root should be root-owned. Only these data directories need
 UID 1000 write access:

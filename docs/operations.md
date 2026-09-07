@@ -11,15 +11,15 @@
 Change mode with:
 
 ```sh
-STACK=/mnt/sharedrive/apps/salvium/staker ./scripts/set-mode.sh observe
-STACK=/mnt/sharedrive/apps/salvium/staker ./scripts/set-mode.sh consolidate
-STACK=/mnt/sharedrive/apps/salvium/staker ./scripts/set-mode.sh live
+STACK=/mnt/sharedrive/salvium-private/staker ./scripts/set-mode.sh observe
+STACK=/mnt/sharedrive/salvium-private/staker ./scripts/set-mode.sh consolidate
+STACK=/mnt/sharedrive/salvium-private/staker ./scripts/set-mode.sh live
 ```
 
 Redeploy after a change:
 
 ```sh
-docker compose --env-file /mnt/sharedrive/apps/salvium/staker/.env up -d
+docker compose --env-file /mnt/sharedrive/salvium-private/staker/.env up -d
 ```
 
 `live` requires an interactive typed confirmation. The old `DRY_RUN` setting is
@@ -44,8 +44,8 @@ cycle before going live.
 
 ```sh
 ./scripts/status.sh
-docker compose --env-file /mnt/sharedrive/apps/salvium/staker/.env ps
-/mnt/sharedrive/apps/salvium/data/operations/host/salvium-stake-executor --check
+docker compose --env-file /mnt/sharedrive/salvium-private/staker/.env ps
+/mnt/sharedrive/salvium-private/operations/host/salvium-stake-executor --check
 ```
 
 Expected state:
@@ -60,10 +60,10 @@ Expected state:
 Logs and transaction metadata are private:
 
 ```text
-/mnt/sharedrive/apps/salvium/staker/logs/staker.log
-/mnt/sharedrive/apps/salvium/staker/logs/audit.jsonl
-/mnt/sharedrive/apps/salvium/data/operations/staker-state/stake-executor.log
-/mnt/sharedrive/apps/salvium/data/operations/staker-state/stake-output-*.log
+/mnt/sharedrive/salvium-private/staker/logs/staker.log
+/mnt/sharedrive/salvium-private/staker/logs/audit.jsonl
+/mnt/sharedrive/salvium-private/operations/staker-state/stake-executor.log
+/mnt/sharedrive/salvium-private/operations/staker-state/stake-output-*.log
 ```
 
 Do not paste these files publicly without redacting balances, addresses, hashes,
@@ -79,6 +79,12 @@ the cooldown, and verify no outgoing transaction is pending.
 enabled, runs as root every five minutes, and uses the installed executor path.
 Run the executor `--check` command. Do not delete a request until you establish
 whether the CLI may already have submitted a transaction.
+
+**Executor reports an unsafe wallet path:** do not bypass the check with only
+`chmod`. Run `nfs4xdr_getfacl` and `getfacl` on the runtime and executor paths.
+If either reports a non-trivial ACL, migrate to a dedicated non-shared dataset
+or remove the named/inherited entries through the TrueNAS ACL manager. Verify
+that unrelated local users cannot read or write the paths before retrying.
 
 **Ambiguous result:** inspect the private CLI output and wallet transaction
 history. The one-hour cooldown is deliberate. Confirm on-chain/wallet status

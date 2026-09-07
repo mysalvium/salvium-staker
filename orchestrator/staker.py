@@ -324,8 +324,9 @@ def consume_stake_result(name: str, ws: dict, now: float) -> None:
         ws["cooldown_until"] = now + AMBIGUOUS_STAKE_COOLDOWN
         ws["last_action"] = "stake_ambiguous"
     else:
-        log.warning("[%s] executor stake FAILED: %s (see stake-output-%s.log)",
-                    name, result.get("detail", "unknown"), name)
+        log.warning("[%s] executor stake FAILED: %s "
+                    "(see private stake-executor.log)",
+                    name, result.get("detail", "unknown"))
         audit("stake_failed_executor", name,
               detail=result.get("detail", "unknown"),
               executor_ts=result.get("ts"))

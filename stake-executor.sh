@@ -11,7 +11,32 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 umask 077
 
-EXECUTOR_CONFIG="${EXECUTOR_CONFIG:-/mnt/sharedrive/apps/salvium/data/operations/host/salvium-staker-executor.conf}"
+path_has_trivial_acl() {
+    acl_path="$1"
+    acl_inspected=0
+
+    # TrueNAS getfacl(1) provides only a lossy mode-bit view of native NFSv4
+    # ACLs.  Require the authoritative ZFS ACL to be trivial when the native
+    # inspection helper supports this path.
+    if command -v nfs4xdr_getfacl >/dev/null 2>&1; then
+        if native_acl=$(nfs4xdr_getfacl "$acl_path" 2>/dev/null); then
+            acl_inspected=1
+            printf '%s\n' "$native_acl" | grep -q '^# trivial_acl: true$' || return 1
+        fi
+    fi
+
+    if command -v getfacl >/dev/null 2>&1; then
+        posix_acl=$(getfacl -cp "$acl_path" 2>/dev/null) || return 1
+        acl_inspected=1
+        if printf '%s\n' "$posix_acl" \
+            | grep -Eq '^(default:|user:[^:]|group:[^:]|mask::)'; then
+            return 1
+        fi
+    fi
+    [ "$acl_inspected" -eq 1 ]
+}
+
+EXECUTOR_CONFIG="${EXECUTOR_CONFIG:-/mnt/sharedrive/salvium-private/operations/host/salvium-staker-executor.conf}"
 if [ -e "$EXECUTOR_CONFIG" ]; then
     if [ ! -f "$EXECUTOR_CONFIG" ] || [ -L "$EXECUTOR_CONFIG" ]; then
         echo "executor config is not a safe regular file" >&2
@@ -23,12 +48,16 @@ if [ -e "$EXECUTOR_CONFIG" ]; then
         echo "executor config must be root-owned and not group/world writable" >&2
         exit 1
     fi
+    if ! path_has_trivial_acl "$EXECUTOR_CONFIG"; then
+        echo "executor config must not have a non-trivial ACL" >&2
+        exit 1
+    fi
     # The installer makes this file root-owned and non-writable by other users.
     # shellcheck disable=SC1090
     . "$EXECUTOR_CONFIG"
 fi
 
-STACK="${STACK:-/mnt/sharedrive/apps/salvium/staker}"
+STACK="${STACK:-/mnt/sharedrive/salvium-private/staker}"
 IMAGE="${IMAGE:-salvium-staker/wallet-rpc:v1.1.3c-hardened1}"
 NETWORK="${NETWORK:-salvium_privileged_rpc}"
 DAEMON="${DAEMON:-salviumd:19081}"
@@ -37,7 +66,7 @@ MAX_REQUEST_AGE="${MAX_REQUEST_AGE:-3600}"
 MIN_SECONDS_BETWEEN_ATTEMPTS="${MIN_SECONDS_BETWEEN_ATTEMPTS:-1200}"
 EXPECTED_REQUEST_UID="${EXPECTED_REQUEST_UID:-1000}"
 EXPECTED_REQUEST_GID="${EXPECTED_REQUEST_GID:-1000}"
-STATE_DIR="${STATE_DIR:-/mnt/sharedrive/apps/salvium/data/operations/staker-state}"
+STATE_DIR="${STATE_DIR:-/mnt/sharedrive/salvium-private/operations/staker-state}"
 EXEC_LOG="$STATE_DIR/stake-executor.log"
 LOCKDIR="$STATE_DIR/executor.lock"
 STOPPED_CONTAINER=""
@@ -51,6 +80,15 @@ fail_closed() {
     exit 1
 }
 
+owned_private_path_is_safe() {
+    private_path="$1"
+    expected_uid="$2"
+    [ "$(stat -c %u "$private_path")" -eq "$expected_uid" ] || return 1
+    private_mode=$(stat -c %a "$private_path")
+    [ $((0$private_mode & 0077)) -eq 0 ] || return 1
+    path_has_trivial_acl "$private_path"
+}
+
 check_root_trust() {
     [ "$(id -u)" -eq 0 ] || fail_closed "executor must run as root"
     self_path=$(readlink -f "$0")
@@ -59,16 +97,49 @@ check_root_trust() {
         [ "$(stat -c %u "$trusted_dir")" -eq 0 ] || fail_closed "trusted directory is not root-owned: $trusted_dir"
         trusted_mode=$(stat -c %a "$trusted_dir")
         [ $((0$trusted_mode & 0022)) -eq 0 ] || fail_closed "trusted directory is group/world writable: $trusted_dir"
+        path_has_trivial_acl "$trusted_dir" || fail_closed "trusted directory has a non-trivial ACL: $trusted_dir"
     done
     [ "$(stat -c %u "$self_path")" -eq 0 ] || fail_closed "executor is not owned by root"
     self_mode=$(stat -c %a "$self_path")
     [ $((0$self_mode & 0022)) -eq 0 ] || fail_closed "executor is group/world writable"
+    path_has_trivial_acl "$self_path" || fail_closed "executor has a non-trivial ACL"
     if [ -e "$EXECUTOR_CONFIG" ]; then
         [ ! -L "$EXECUTOR_CONFIG" ] || fail_closed "executor config is a symlink"
         [ "$(stat -c %u "$EXECUTOR_CONFIG")" -eq 0 ] || fail_closed "executor config is not root-owned"
         config_mode=$(stat -c %a "$EXECUTOR_CONFIG")
         [ $((0$config_mode & 0022)) -eq 0 ] || fail_closed "executor config is group/world writable"
+        path_has_trivial_acl "$EXECUTOR_CONFIG" || fail_closed "executor config has a non-trivial ACL"
     fi
+}
+
+check_stack_boundary() {
+    for root_dir in "$STACK" "$STACK/config" "$STACK/wallets" "$STACK/secrets"; do
+        [ -d "$root_dir" ] && [ ! -L "$root_dir" ] \
+            || fail_closed "private runtime directory is missing or unsafe: $root_dir"
+        [ "$(stat -c %u "$root_dir")" -eq 0 ] \
+            || fail_closed "private runtime directory is not root-owned: $root_dir"
+        root_mode=$(stat -c %a "$root_dir")
+        [ $((0$root_mode & 0022)) -eq 0 ] \
+            || fail_closed "private runtime directory is group/world writable: $root_dir"
+        path_has_trivial_acl "$root_dir" \
+            || fail_closed "private runtime directory has a non-trivial ACL: $root_dir"
+    done
+
+    [ -d "$STACK/logs" ] && [ ! -L "$STACK/logs" ] \
+        || fail_closed "orchestrator log directory is missing or unsafe"
+    owned_private_path_is_safe "$STACK/logs" "$EXPECTED_REQUEST_UID" \
+        || fail_closed "orchestrator log directory ownership, mode, or ACL is unsafe"
+
+    wallet_config="$STACK/config/wallets.yml"
+    [ -f "$wallet_config" ] && [ ! -L "$wallet_config" ] \
+        || fail_closed "wallet configuration is missing or unsafe"
+    [ "$(stat -c %u "$wallet_config")" -eq 0 ] \
+        || fail_closed "wallet configuration is not root-owned"
+    wallet_config_mode=$(stat -c %a "$wallet_config")
+    [ $((0$wallet_config_mode & 0022)) -eq 0 ] \
+        || fail_closed "wallet configuration is group/world writable"
+    path_has_trivial_acl "$wallet_config" \
+        || fail_closed "wallet configuration has a non-trivial ACL"
 }
 
 restart_wallet() {
@@ -84,6 +155,8 @@ restart_wallet() {
     return 0
 }
 
+# Called indirectly by the EXIT/signal trap installed near the end of the file.
+# shellcheck disable=SC2329
 cleanup() {
     # shellcheck disable=SC2317  # Called indirectly by the signal/exit trap.
     restart_wallet || true
@@ -171,19 +244,70 @@ PY
 wallet_paths_are_safe() {
     wallet_dir="$1"
     wallet_file="$2"
-    [ -d "$wallet_dir" ] && [ ! -L "$wallet_dir" ] || return 1
-    [ "$(stat -c %u "$wallet_dir")" -eq "$EXPECTED_REQUEST_UID" ] || return 1
+    WALLET_PATH_ERROR=""
+    if [ ! -d "$wallet_dir" ] || [ -L "$wallet_dir" ]; then
+        WALLET_PATH_ERROR="wallet directory is missing, not a directory, or a symlink"
+        return 1
+    fi
+    if ! owned_private_path_is_safe "$wallet_dir" "$EXPECTED_REQUEST_UID"; then
+        WALLET_PATH_ERROR="wallet directory ownership, mode, or ACL is unsafe"
+        return 1
+    fi
     for path in "$wallet_dir/$wallet_file" "$wallet_dir/$wallet_file.keys"; do
-        [ -f "$path" ] && [ ! -L "$path" ] || return 1
-        [ "$(stat -c %u "$path")" -eq "$EXPECTED_REQUEST_UID" ] || return 1
-        path_mode=$(stat -c %a "$path")
-        [ $((0$path_mode & 0077)) -eq 0 ] || return 1
+        if [ ! -f "$path" ] || [ -L "$path" ]; then
+            WALLET_PATH_ERROR="wallet cache or keys file is missing, not regular, or a symlink"
+            return 1
+        fi
+        if ! owned_private_path_is_safe "$path" "$EXPECTED_REQUEST_UID"; then
+            WALLET_PATH_ERROR="wallet cache or keys ownership, mode, or ACL is unsafe"
+            return 1
+        fi
     done
-    [ -d "$wallet_dir/logs" ] && [ ! -L "$wallet_dir/logs" ] || return 1
-    [ "$(stat -c %u "$wallet_dir/logs")" -eq "$EXPECTED_REQUEST_UID" ] || return 1
+    if [ ! -d "$wallet_dir/logs" ] || [ -L "$wallet_dir/logs" ]; then
+        WALLET_PATH_ERROR="wallet log directory is missing, not a directory, or a symlink"
+        return 1
+    fi
+    if ! owned_private_path_is_safe "$wallet_dir/logs" "$EXPECTED_REQUEST_UID"; then
+        WALLET_PATH_ERROR="wallet log directory ownership, mode, or ACL is unsafe"
+        return 1
+    fi
     cli_log="$wallet_dir/logs/cli-stake.log"
-    [ ! -e "$cli_log" ] || { [ -f "$cli_log" ] && [ ! -L "$cli_log" ]; } || return 1
+    if [ -e "$cli_log" ]; then
+        if [ ! -f "$cli_log" ] || [ -L "$cli_log" ] \
+            || ! owned_private_path_is_safe "$cli_log" "$EXPECTED_REQUEST_UID"; then
+            WALLET_PATH_ERROR="wallet CLI log ownership, type, mode, or ACL is unsafe"
+            return 1
+        fi
+    fi
     return 0
+}
+
+wallet_secret_is_safe() {
+    secret_file="$1"
+    [ -f "$secret_file" ] && [ ! -L "$secret_file" ] || return 1
+    owned_private_path_is_safe "$secret_file" "$EXPECTED_REQUEST_UID"
+}
+
+check_wallet_runtime() {
+    check_name="$1"
+    check_wallet_file="$2"
+    check_secret_name="$3"
+    check_wallet_dir="$STACK/wallets/$check_name"
+    check_secret_file="$STACK/secrets/$check_secret_name"
+
+    wallet_paths_are_safe "$check_wallet_dir" "$check_wallet_file" \
+        || fail_closed "$check_name: $WALLET_PATH_ERROR"
+    wallet_secret_is_safe "$check_secret_file" \
+        || fail_closed "$check_name: wallet password ownership, mode, or ACL is unsafe"
+}
+
+check_all_secrets() {
+    for check_secret_name in \
+        miner_wallet_password public_wallet_password \
+        miner_rpc_password public_rpc_password; do
+        wallet_secret_is_safe "$STACK/secrets/$check_secret_name" \
+            || fail_closed "$check_secret_name ownership, mode, or ACL is unsafe"
+    done
 }
 
 wait_for_wallet() {
@@ -232,6 +356,10 @@ handle_wallet() {
         log "$name: rejected request with uid=$request_uid mode=$request_mode"
         return 0
     fi
+    if ! path_has_trivial_acl "$request"; then
+        log "$name: rejected request with a non-trivial ACL"
+        return 0
+    fi
     now=$(date +%s)
     request_age=$((now - $(stat -c %Y "$request")))
     if [ "$request_age" -lt 0 ] || [ "$request_age" -gt "$MAX_REQUEST_AGE" ]; then
@@ -256,18 +384,13 @@ handle_wallet() {
     fi
 
     wallet_paths_are_safe "$wallet_dir" "$wallet_file" || {
-        write_result "failed" "$name" "$amount" "wallet directory is missing or unsafe"
+        write_result "failed" "$name" "$amount" "$WALLET_PATH_ERROR"
+        log "$name: wallet path preflight rejected: $WALLET_PATH_ERROR"
         return 0
     }
-    if [ ! -f "$secret_file" ] || [ -L "$secret_file" ]; then
-        write_result "failed" "$name" "$amount" "wallet password file is missing or unsafe"
-        return 0
-    fi
-    secret_mode=$(stat -c %a "$secret_file")
-    secret_owner=$(stat -c %u "$secret_file")
-    if [ "$secret_owner" -ne "$EXPECTED_REQUEST_UID" ] || [ $((0$secret_mode & 0077)) -ne 0 ]; then
-        write_result "failed" "$name" "$amount" "wallet password file permissions are too broad"
-        log "$name: rejected secret file owner=$secret_owner mode=$secret_mode"
+    if ! wallet_secret_is_safe "$secret_file"; then
+        write_result "failed" "$name" "$amount" "wallet password ownership, mode, or ACL is unsafe"
+        log "$name: rejected wallet password ownership, type, mode, or ACL"
         return 0
     fi
 
@@ -345,8 +468,12 @@ handle_wallet() {
 mkdir -p "$STATE_DIR"
 mkdir -p "$STACK/logs"
 check_root_trust
+check_stack_boundary
 if [ "${1:-}" = "--check" ]; then
-    echo "Executor ownership and configuration checks passed."
+    check_wallet_runtime "miner" "${MINER_WALLET_FILE:-Salvium Miner Wallet}" "miner_wallet_password"
+    check_wallet_runtime "public" "${PUBLIC_WALLET_FILE:-Public Salvium Wallet}" "public_wallet_password"
+    check_all_secrets
+    echo "Executor, runtime ownership, mode, and ACL checks passed."
     exit 0
 fi
 mkdir "$LOCKDIR" 2>/dev/null || exit 0

@@ -46,34 +46,58 @@ published to the LAN or Internet and no container receives the Docker socket.
 This guide uses these locations:
 
 ```text
-/mnt/sharedrive/apps/salvium/staker-repo   downloaded source code
-/mnt/sharedrive/apps/salvium/staker        private wallet data and settings
+/mnt/sharedrive/salvium-private/staker-repo   downloaded source code
+/mnt/sharedrive/salvium-private/staker        private wallet data and settings
+/mnt/sharedrive/salvium-private/operations    installed root-only executor
 ```
 
-The source and private data are deliberately separate.
+All three paths are inside a dedicated, non-shared dataset. The source and
+private data are separate directories, and the scheduled root executor is an
+installed copy outside the Git checkout.
 
 ## Easy installation
 
-### 1. Download the project
+### 1. Create a private dataset
+
+Do not place this stack inside an SMB share or a TrueNAS Apps dataset with its
+default inherited ACL. Named NFSv4 entries can grant access even when `stat`
+shows `0600`, and mutable wallet cache files can inherit broad permissions when
+they are replaced.
+
+In the TrueNAS UI, create `sharedrive/salvium-private` with the **Generic**
+preset, POSIX ACL type, and no SMB or NFS share. Set its owner to `root:root`
+and mode to `0700`. The equivalent TrueNAS API commands are:
+
+```sh
+midclt call pool.dataset.create \
+  '{"name":"sharedrive/salvium-private","type":"FILESYSTEM","share_type":"GENERIC","acltype":"POSIX","aclmode":"DISCARD","casesensitivity":"SENSITIVE"}'
+midclt call -j filesystem.setperm \
+  '{"path":"/mnt/sharedrive/salvium-private","mode":"0700","uid":0,"gid":0,"options":{"stripacl":true}}'
+```
+
+Confirm the path is not covered by an SMB or NFS share before continuing.
+
+### 2. Download the project
 
 Open the TrueNAS shell, become root, and run:
 
 ```sh
-cd /mnt/sharedrive/apps/salvium
+cd /mnt/sharedrive/salvium-private
 git clone https://github.com/mysalvium/salvium-staker.git staker-repo
 cd staker-repo
 ```
 
-### 2. Prepare private folders
+### 3. Prepare private folders
 
 ```sh
-STACK=/mnt/sharedrive/apps/salvium/staker ./scripts/prepare-host.sh
+STACK=/mnt/sharedrive/salvium-private/staker ./scripts/prepare-host.sh
 ```
 
 The command creates the folders and random RPC passwords. It does not overwrite
-an existing wallet, password, configuration, or `.env` file.
+an existing wallet, password, configuration, or `.env` file. It rejects
+non-trivial NFSv4 or POSIX ACLs rather than trusting Unix mode bits alone.
 
-### 3. Connect the wallets to your Salvium node
+### 4. Connect the wallets to your Salvium node
 
 There are two different wallet-to-node connections. They deliberately use
 different addresses:
@@ -101,7 +125,7 @@ Then confirm these two lines in the private staker `.env`:
 
 ```sh
 grep -E '^(PRIVILEGED_RPC_NETWORK|DAEMON_ADDRESS)=' \
-  /mnt/sharedrive/apps/salvium/staker/.env
+  /mnt/sharedrive/salvium-private/staker/.env
 ```
 
 The result should be:
@@ -135,46 +159,47 @@ node stack. Use it only from your trusted LAN or through a VPN. Never forward
 `19089` to the public Internet. Changing DHCP addresses on the wallet computers
 is fine when the node firewall trusts the whole intended LAN subnet.
 
-### 4. Copy both wallets
+### 5. Copy both wallets
 
 Each wallet has two important files: the wallet cache and the matching `.keys`
 file. Copy both while preserving the names shown below:
 
 ```text
-/mnt/sharedrive/apps/salvium/staker/wallets/public/Public Salvium Wallet
-/mnt/sharedrive/apps/salvium/staker/wallets/public/Public Salvium Wallet.keys
-/mnt/sharedrive/apps/salvium/staker/wallets/miner/Salvium Miner Wallet
-/mnt/sharedrive/apps/salvium/staker/wallets/miner/Salvium Miner Wallet.keys
+/mnt/sharedrive/salvium-private/staker/wallets/public/Public Salvium Wallet
+/mnt/sharedrive/salvium-private/staker/wallets/public/Public Salvium Wallet.keys
+/mnt/sharedrive/salvium-private/staker/wallets/miner/Salvium Miner Wallet
+/mnt/sharedrive/salvium-private/staker/wallets/miner/Salvium Miner Wallet.keys
 ```
 
 Then protect them:
 
 ```sh
-chown -R 1000:1000 /mnt/sharedrive/apps/salvium/staker/wallets
-find /mnt/sharedrive/apps/salvium/staker/wallets -type d -exec chmod 700 {} \;
-find /mnt/sharedrive/apps/salvium/staker/wallets -type f -exec chmod 600 {} \;
+chown -R 1000:1000 /mnt/sharedrive/salvium-private/staker/wallets
+find /mnt/sharedrive/salvium-private/staker/wallets -type d -exec chmod 700 {} \;
+find /mnt/sharedrive/salvium-private/staker/wallets -type f -exec chmod 600 {} \;
 ```
 
-Never copy a seed phrase into this project or into Git.
+Run `./scripts/install-executor.sh` later with `--check`, which also rejects
+named or inherited ACLs. Never copy a seed phrase into this project or into Git.
 
-### 5. Store the wallet passwords
+### 6. Store the wallet passwords
 
 Run the interactive helper. Your typing is hidden:
 
 ```sh
-STACK=/mnt/sharedrive/apps/salvium/staker ./scripts/set-wallet-passwords.sh
+STACK=/mnt/sharedrive/salvium-private/staker ./scripts/set-wallet-passwords.sh
 ```
 
 Passwords are private files under `secrets/`; they are **not** values in
 `.env`. The `.env` file contains non-secret deployment settings and the two
 on/off controls.
 
-### 6. Review the staking rules
+### 7. Review the staking rules
 
 Open:
 
 ```text
-/mnt/sharedrive/apps/salvium/staker/config/wallets.yml
+/mnt/sharedrive/salvium-private/staker/config/wallets.yml
 ```
 
 The supplied example waits until the miner wallet has more than 25 outputs,
@@ -182,17 +207,17 @@ consolidates them to itself, and stakes once a single output exceeds 15 SAL.
 The public wallet stakes any eligible amount of at least 34 SAL. See
 [`docs/operations.md`](docs/operations.md) before changing these values.
 
-### 7. Build verified images
+### 8. Build verified images
 
 ```sh
-cd /mnt/sharedrive/apps/salvium/staker-repo
+cd /mnt/sharedrive/salvium-private/staker-repo
 ./build-images.sh
 ```
 
 The build stops immediately if the official archive does not match its trusted
 checksum.
 
-### 8. Install the protected stake executor
+### 9. Install the protected stake executor
 
 ```sh
 ./scripts/install-executor.sh
@@ -204,19 +229,19 @@ In TrueNAS, create a scheduled task with:
 |---|---|
 | User | `root` |
 | Schedule | Every 5 minutes |
-| Command | `/mnt/sharedrive/apps/salvium/data/operations/host/salvium-stake-executor` |
+| Command | `/mnt/sharedrive/salvium-private/operations/host/salvium-stake-executor` |
 
 Do not schedule the copy inside the Git folder. The installed copy is in the
 persistent root-only Salvium operations directory and cannot be replaced by the
 wallet containers. TrueNAS keeps its system filesystem read-only, so this data
 pool location is intentional.
 
-### 9. Start in observe mode
+### 10. Start in observe mode
 
 ```sh
-cd /mnt/sharedrive/apps/salvium/staker-repo
+cd /mnt/sharedrive/salvium-private/staker-repo
 docker compose \
-  --env-file /mnt/sharedrive/apps/salvium/staker/.env \
+  --env-file /mnt/sharedrive/salvium-private/staker/.env \
   up -d
 ./scripts/status.sh
 ```
@@ -224,14 +249,14 @@ docker compose \
 Observe mode is the default. Leave it running for at least one full polling
 cycle and confirm that both wallet services become `healthy`.
 
-### 10. Enable automatic staking
+### 11. Enable automatic staking
 
 When the balances, output counts, and proposed actions look correct:
 
 ```sh
-STACK=/mnt/sharedrive/apps/salvium/staker ./scripts/set-mode.sh live
+STACK=/mnt/sharedrive/salvium-private/staker ./scripts/set-mode.sh live
 docker compose \
-  --env-file /mnt/sharedrive/apps/salvium/staker/.env \
+  --env-file /mnt/sharedrive/salvium-private/staker/.env \
   up -d
 ```
 
@@ -254,7 +279,9 @@ encrypted, offline, or otherwise protected storage. Full guidance is in
 
 Portainer can deploy the Compose file after the two images are built on the
 Docker endpoint. Set the same non-secret values shown in `.env.example`, use
-`docker-compose.yml`, and keep passwords as host files under `secrets/`.
+`docker-compose.yml`, keep passwords as host files under `secrets/`, and keep
+Portainer's stack working directory inside the private dataset rather than an
+SMB-shared path.
 
 The local `.portainer-token` file is intentionally ignored. It is an
 administrator credential for Portainer, is not required by this stack, and
@@ -269,9 +296,9 @@ reviews, rebuilds, scans, backs up, and then deploys them:
 ```sh
 git pull --ff-only
 ./build-images.sh
-./scripts/security-scan.sh /mnt/sharedrive/apps/salvium/staker/.env full
+./scripts/security-scan.sh /mnt/sharedrive/salvium-private/staker/.env full
 ./scripts/backup.sh
-docker compose --env-file /mnt/sharedrive/apps/salvium/staker/.env up -d
+docker compose --env-file /mnt/sharedrive/salvium-private/staker/.env up -d
 ./scripts/status.sh
 ```
 
@@ -282,6 +309,7 @@ docker compose --env-file /mnt/sharedrive/apps/salvium/staker/.env up -d
 - [`docs/security-hardening.md`](docs/security-hardening.md) — protections and remaining risks
 - [`docs/operations.md`](docs/operations.md) — modes, thresholds, updates, and troubleshooting
 - [`docs/backup-and-recovery.md`](docs/backup-and-recovery.md) — backup and safe restore procedure
+- [`docs/truenas-private-dataset-migration.md`](docs/truenas-private-dataset-migration.md) — safely move an existing TrueNAS install out of inherited ACLs
 - [`docs/supply-chain.md`](docs/supply-chain.md) — downloads, scans, SBOMs, and update review
 
 ## Support and safety

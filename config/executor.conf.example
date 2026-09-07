@@ -1,5 +1,5 @@
 # Installed in the persistent root-only Salvium operations directory.
-STACK=/mnt/sharedrive/apps/salvium/staker
+STACK=/mnt/sharedrive/salvium-private/staker
 IMAGE=salvium-staker/wallet-rpc:v1.1.3c-hardened1
 NETWORK=salvium_privileged_rpc
 DAEMON=salviumd:19081
@@ -8,7 +8,7 @@ MAX_REQUEST_AGE=3600
 MIN_SECONDS_BETWEEN_ATTEMPTS=1200
 EXPECTED_REQUEST_UID=1000
 EXPECTED_REQUEST_GID=1000
-STATE_DIR=/mnt/sharedrive/apps/salvium/data/operations/staker-state
+STATE_DIR=/mnt/sharedrive/salvium-private/operations/staker-state
 MINER_WALLET_FILE='Salvium Miner Wallet'
 PUBLIC_WALLET_FILE='Public Salvium Wallet'
 MINER_MIN_STAKE_SAL=1

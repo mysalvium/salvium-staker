@@ -2,7 +2,7 @@
 # Create a consistent root-only backup containing wallets and secrets.
 set -eu
 
-STACK="${STACK:-/mnt/sharedrive/apps/salvium/staker}"
+STACK="${STACK:-/mnt/sharedrive/salvium-private/staker}"
 DESTINATION="${DESTINATION:-/mnt/sharedrive/backups/salvium-staker}"
 STAMP=$(date -u '+%Y%m%dT%H%M%SZ')
 FINAL="$DESTINATION/salvium-staker-$STAMP.tar.zst"

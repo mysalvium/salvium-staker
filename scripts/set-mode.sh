@@ -2,7 +2,7 @@
 # Atomically change the two financial-action flags in the private .env file.
 set -eu
 
-STACK="${STACK:-/mnt/sharedrive/apps/salvium/staker}"
+STACK="${STACK:-/mnt/sharedrive/salvium-private/staker}"
 ENV_FILE="${ENV_FILE:-$STACK/.env}"
 mode="${1:-}"
 

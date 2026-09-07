@@ -57,7 +57,7 @@ printf 'PASS: source secret scan; configuration and dependency reports written\n
 command -v docker >/dev/null || die "docker is required for image scanning"
 
 salvium_version=$(read_env_value SALVIUM_VERSION v1.1.3c)
-stack_release=$(read_env_value STACK_RELEASE 2.2.0)
+stack_release=$(read_env_value STACK_RELEASE 2.2.1)
 images=(
   "salvium-staker/wallet-rpc:${salvium_version}-hardened1"
   "salvium-staker/orchestrator:${stack_release}"

@@ -23,6 +23,7 @@ jobs:
         run: |
           bash -n ./*.sh scripts/*.sh
           shellcheck ./*.sh scripts/*.sh
+          sh tests/test_acl_safety.sh
           docker compose --env-file .env.example config --quiet
           ./scripts/check-repo-safety.sh
           ./scripts/validate-hardening.sh .env.example

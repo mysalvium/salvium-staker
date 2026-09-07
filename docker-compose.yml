@@ -30,14 +30,14 @@ services:
       BALANCE_LOG_INTERVAL: "${BALANCE_LOG_INTERVAL:-600}"
     volumes:
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/wallets/public"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/wallets/public"
         target: /wallet
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/public_wallet_password"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/secrets/public_wallet_password"
         target: /run/secrets/wallet_password
         read_only: true
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/public_rpc_password"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/secrets/public_rpc_password"
         target: /run/secrets/rpc_password
         read_only: true
     tmpfs:
@@ -86,14 +86,14 @@ services:
       BALANCE_LOG_INTERVAL: "${BALANCE_LOG_INTERVAL:-600}"
     volumes:
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/wallets/miner"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/wallets/miner"
         target: /wallet
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/miner_wallet_password"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/secrets/miner_wallet_password"
         target: /run/secrets/wallet_password
         read_only: true
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/miner_rpc_password"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/secrets/miner_rpc_password"
         target: /run/secrets/rpc_password
         read_only: true
     tmpfs:
@@ -114,7 +114,7 @@ services:
       - privileged_rpc
 
   orchestrator:
-    image: "salvium-staker/orchestrator:${STACK_RELEASE:-2.2.0}"
+    image: "salvium-staker/orchestrator:${STACK_RELEASE:-2.2.1}"
     build:
       context: ./orchestrator
     container_name: salvium-staker-orchestrator
@@ -139,18 +139,18 @@ services:
       HEALTH_MAX_AGE_SECONDS: "${HEALTH_MAX_AGE_SECONDS:-1800}"
     volumes:
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/config/wallets.yml"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/config/wallets.yml"
         target: /config/wallets.yml
         read_only: true
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/logs"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/logs"
         target: /logs
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/public_rpc_password"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/secrets/public_rpc_password"
         target: /run/secrets/public_rpc_password
         read_only: true
       - type: bind
-        source: "${STACK_DIR:-/mnt/sharedrive/apps/salvium/staker}/secrets/miner_rpc_password"
+        source: "${STACK_DIR:-/mnt/sharedrive/salvium-private/staker}/secrets/miner_rpc_password"
         target: /run/secrets/miner_rpc_password
         read_only: true
     tmpfs:

@@ -41,7 +41,7 @@ and restarts wallet-RPC even if the CLI fails or times out.
 No container mounts `/var/run/docker.sock`. The executor source in the Git
 checkout is never run by root. `scripts/install-executor.sh` copies it to the
 persistent root-only path
-`/mnt/sharedrive/apps/salvium/data/operations/host/salvium-stake-executor` with
+`/mnt/sharedrive/salvium-private/operations/host/salvium-stake-executor` with
 mode `0750`. Its configuration and rate-limit state also live below the
 root-only Salvium operations directory. This avoids TrueNAS's read-only system
 filesystem.

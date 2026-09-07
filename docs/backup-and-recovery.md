@@ -14,7 +14,7 @@ SHA-256 sidecar.
 ## Create and verify
 
 ```sh
-cd /mnt/sharedrive/apps/salvium/staker-repo
+cd /mnt/sharedrive/salvium-private/staker-repo
 ./scripts/backup.sh
 ./scripts/verify-backup.sh /mnt/sharedrive/backups/salvium-staker/FILE.tar.zst
 ```
@@ -47,7 +47,7 @@ wallet simultaneously.
 Create a root scheduled task for a quiet period, for example once per week:
 
 ```text
-/mnt/sharedrive/apps/salvium/staker-repo/scripts/backup.sh
+/mnt/sharedrive/salvium-private/staker-repo/scripts/backup.sh
 ```
 
 Monitor task failures and free space. Retention is intentionally not automatic;

@@ -6,7 +6,7 @@ DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 cd "$DIR"
 
 SALVIUM_VERSION="${SALVIUM_VERSION:-v1.1.3c}"
-STACK_RELEASE="${STACK_RELEASE:-2.2.0}"
+STACK_RELEASE="${STACK_RELEASE:-2.2.1}"
 export DOCKER_BUILDKIT=1
 
 printf '%s\n' ">> verifying the published Salvium archive checksum"

@@ -2,7 +2,7 @@
 # Securely create password files that match the two existing wallet files.
 set -eu
 
-STACK="${STACK:-/mnt/sharedrive/apps/salvium/staker}"
+STACK="${STACK:-/mnt/sharedrive/salvium-private/staker}"
 [ -t 0 ] || { echo "Run this script from an interactive terminal." >&2; exit 1; }
 [ "$(id -u)" -eq 0 ] || { echo "Run this script as root on the Docker host." >&2; exit 1; }
 

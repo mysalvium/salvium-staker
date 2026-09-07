@@ -8,8 +8,24 @@ ROOT = Path(__file__).parents[1]
 class ExecutorPolicyTests(unittest.TestCase):
     def test_root_cron_installs_an_immutable_copy(self):
         installer = (ROOT / "scripts" / "install-executor.sh").read_text()
-        self.assertIn("/mnt/sharedrive/apps/salvium/data/operations", installer)
+        self.assertIn("/mnt/sharedrive/salvium-private/operations", installer)
         self.assertIn("-m 0750 -o root -g root", installer)
+        self.assertIn("require_trivial_acl", installer)
+
+    def test_executor_rejects_nontrivial_acls(self):
+        executor = (ROOT / "stake-executor.sh").read_text()
+        self.assertIn("nfs4xdr_getfacl", executor)
+        self.assertIn("# trivial_acl: true", executor)
+        self.assertIn("path_has_trivial_acl", executor)
+        self.assertLess(
+            executor.index('if ! path_has_trivial_acl "$EXECUTOR_CONFIG"'),
+            executor.index('. "$EXECUTOR_CONFIG"'),
+        )
+
+    def test_private_runtime_is_outside_the_shared_apps_tree(self):
+        environment = (ROOT / ".env.example").read_text()
+        self.assertIn("STACK_DIR=/mnt/sharedrive/salvium-private/staker", environment)
+        self.assertNotIn("STACK_DIR=/mnt/sharedrive/apps/", environment)
 
     def test_one_shot_container_is_constrained(self):
         executor = (ROOT / "stake-executor.sh").read_text()
