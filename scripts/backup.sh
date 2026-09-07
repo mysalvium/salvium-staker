@@ -23,10 +23,41 @@ require_trivial_acl "$DESTINATION" "Backup destination"
 [ "$(stat -c '%u:%g:%a' "$DESTINATION")" = "0:0:700" ] \
   || { echo "Backup destination must be root:root mode 0700: $DESTINATION" >&2; exit 1; }
 
-restart_containers() {
-  for container in $STOPPED; do
-    docker start "$container" >/dev/null 2>&1 || true
+was_running() {
+  case " $STOPPED " in
+    *" $1 "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+wait_for_healthy() {
+  health_container=$1
+  health_attempt=0
+  while [ "$health_attempt" -lt 90 ]; do
+    health_status=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' \
+      "$health_container" 2>/dev/null || true)
+    [ "$health_status" = "healthy" ] && return 0
+    health_attempt=$((health_attempt + 1))
+    sleep 2
   done
+  echo "Warning: $health_container did not become healthy within 180 seconds." >&2
+  return 1
+}
+
+restart_containers() {
+  for container in salvium-staker-wallet-rpc-public salvium-staker-wallet-rpc-miner; do
+    if was_running "$container"; then
+      docker start "$container" >/dev/null 2>&1 || true
+    fi
+  done
+  for container in salvium-staker-wallet-rpc-public salvium-staker-wallet-rpc-miner; do
+    if was_running "$container"; then
+      wait_for_healthy "$container" || true
+    fi
+  done
+  if was_running salvium-staker-orchestrator; then
+    docker start salvium-staker-orchestrator >/dev/null 2>&1 || true
+  fi
   rm -f "$TEMP"
 }
 trap restart_containers EXIT INT TERM HUP

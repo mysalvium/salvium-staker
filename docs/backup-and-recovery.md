@@ -8,8 +8,9 @@ excludes ordinary logs and image layers.
 
 The script stops the orchestrator and both wallet-RPC services before archiving
 so the wallet files are consistent, then restarts every service that had been
-running. It verifies the compressed archive before publishing it and writes a
-SHA-256 sidecar.
+running. It waits for both wallet services to become healthy before restarting
+the orchestrator. It verifies the compressed archive before publishing it and
+writes a SHA-256 sidecar.
 
 ## Create and verify
 
