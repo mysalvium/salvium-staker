@@ -24,6 +24,12 @@ another copy on encrypted/offline media, and keep independent offline records of
 both wallet seeds. Test verification regularly; an untested backup is only a
 hope.
 
+The stack root and backup destination must have trivial, inspectable ACLs. The
+backup fails before stopping any container if either path has named/inherited
+ACL entries or if the destination is not `root:root` mode `0700`. This prevents
+an apparently private `0600` archive from remaining accessible through an
+NFSv4 ACE inherited from an SMB or Apps dataset.
+
 ## Safe restore drill
 
 Do not extract a backup over the live stack as a test.

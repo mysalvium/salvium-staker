@@ -27,6 +27,13 @@ class ExecutorPolicyTests(unittest.TestCase):
         self.assertIn("STACK_DIR=/mnt/sharedrive/salvium-private/staker", environment)
         self.assertNotIn("STACK_DIR=/mnt/sharedrive/apps/", environment)
 
+    def test_backup_rejects_unsafe_acl_boundaries(self):
+        backup = (ROOT / "scripts" / "backup.sh").read_text()
+        self.assertIn('require_trivial_acl "$STACK"', backup)
+        self.assertIn('require_trivial_acl "$DESTINATION"', backup)
+        self.assertIn('stat -c \'%u:%g:%a\'', backup)
+        self.assertIn('require_trivial_acl "$backup_file"', backup)
+
     def test_one_shot_container_is_constrained(self):
         executor = (ROOT / "stake-executor.sh").read_text()
         for required in (

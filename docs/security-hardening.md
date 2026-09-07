@@ -19,7 +19,7 @@
 - Immutable base-image digests, exact Python versions, and verified official
   Salvium release checksums
 - Source/config/secret/image scans and SPDX SBOM output
-- Consistent, checksum-verified, root-only backups
+- Consistent, checksum-verified, root-only backups with native ACL validation
 
 ## Host permissions
 
