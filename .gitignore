@@ -41,11 +41,13 @@ htmlcov/
 .venv/
 venv/
 
-# Editor and operating-system files.
+# Editor, agent, and operating-system files.
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+.claude/
+.codex/
 *.swp
 *.tmp
 *.bak
