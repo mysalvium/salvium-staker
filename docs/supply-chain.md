@@ -21,7 +21,8 @@ You can verify the host architecture separately:
 ./scripts/verify-downloads.sh
 ```
 
-The weekly/manual GitHub workflow downloads and checks both Linux architectures:
+The GitHub workflow, when dispatched by hand, downloads and checks both Linux
+architectures:
 
 ```sh
 ./scripts/verify-downloads.sh --all

@@ -1,15 +1,22 @@
+# Software-development checks only. This workflow lints, unit-tests, builds and
+# scans the project's Docker images, and records SBOMs. It never starts a
+# wallet, a node, a miner, or the staking executor, holds no secrets, and has
+# no route to the private host that runs the stack. It runs only when a person
+# pushes, opens a pull request, or dispatches it by hand; nothing is scheduled.
 name: Security and reproducibility
 
 on:
   push:
     branches: [main]
   pull_request:
-  schedule:
-    - cron: "29 7 * * 1"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   scan:
@@ -37,7 +44,7 @@ jobs:
         run: ./build-images.sh
 
       - name: Verify both official architecture downloads
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         run: ./scripts/verify-downloads.sh --all
 
       - name: Scan source and images; generate SBOMs

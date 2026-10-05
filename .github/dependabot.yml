@@ -1,18 +1,21 @@
+# Monthly version-update checks keep unattended pull requests, and the CI runs
+# they trigger, to a minimum. Dependabot security updates are not affected by
+# this interval and still arrive as soon as an advisory is published.
 version: 2
 updates:
   - package-ecosystem: docker
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly
   - package-ecosystem: docker
     directory: "/orchestrator"
     schedule:
-      interval: weekly
+      interval: monthly
   - package-ecosystem: pip
     directory: "/orchestrator"
     schedule:
-      interval: weekly
+      interval: monthly
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: weekly
+      interval: monthly

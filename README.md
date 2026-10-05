@@ -34,6 +34,17 @@ published to the LAN or Internet and no container receives the Docker socket.
 - **Consistent backups:** the included script briefly stops the wallet services,
   creates a root-only archive, and verifies its checksum and compression.
 
+## What runs on GitHub
+
+Nothing operational. This repository holds source code and documentation; the
+wallet services, node connection, consolidation, and staking run only on the
+owner's private Docker host. The single GitHub Actions workflow lints, runs
+unit tests, builds and scans the two images, and records SBOMs. It starts no
+wallet, node, miner, or executor, holds no credentials, has no route to the
+private host, and runs only on pushes, pull requests, and manual dispatch.
+The "miner" wallet is a wallet that receives mining-pool payouts; this project
+contains no mining software.
+
 ## What you need
 
 1. A Linux Docker host such as TrueNAS SCALE with Docker Compose v2.
@@ -290,8 +301,9 @@ must never be committed, uploaded, pasted into an issue, or placed in `.env`.
 ## Updating safely
 
 This financial automation does not silently replace its own transaction code.
-Dependabot and the weekly workflow report available updates; an administrator
-reviews, rebuilds, scans, backs up, and then deploys them:
+Dependabot reports available updates monthly, and the workflow can be run by
+hand at any time; an administrator reviews, rebuilds, scans, backs up, and
+then deploys them:
 
 ```sh
 git pull --ff-only
