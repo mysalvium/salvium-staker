@@ -79,7 +79,7 @@ mv "$TEMP" "$FINAL"
 sha256sum "$FINAL" > "$FINAL.sha256"
 chmod 0600 "$FINAL" "$FINAL.sha256"
 for backup_file in "$FINAL" "$FINAL.sha256"; do
-  [ ! -L "$backup_file" ] && [ -f "$backup_file" ] \
+  { [ ! -L "$backup_file" ] && [ -f "$backup_file" ]; } \
     || { echo "Unsafe backup output: $backup_file" >&2; exit 1; }
   [ "$(stat -c '%u:%g:%a' "$backup_file")" = "0:0:600" ] \
     || { echo "Backup output must be root:root mode 0600: $backup_file" >&2; exit 1; }

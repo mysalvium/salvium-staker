@@ -114,7 +114,7 @@ check_root_trust() {
 
 check_stack_boundary() {
     for root_dir in "$STACK" "$STACK/config" "$STACK/wallets" "$STACK/secrets"; do
-        [ -d "$root_dir" ] && [ ! -L "$root_dir" ] \
+        { [ -d "$root_dir" ] && [ ! -L "$root_dir" ]; } \
             || fail_closed "private runtime directory is missing or unsafe: $root_dir"
         [ "$(stat -c %u "$root_dir")" -eq 0 ] \
             || fail_closed "private runtime directory is not root-owned: $root_dir"
@@ -125,13 +125,13 @@ check_stack_boundary() {
             || fail_closed "private runtime directory has a non-trivial ACL: $root_dir"
     done
 
-    [ -d "$STACK/logs" ] && [ ! -L "$STACK/logs" ] \
+    { [ -d "$STACK/logs" ] && [ ! -L "$STACK/logs" ]; } \
         || fail_closed "orchestrator log directory is missing or unsafe"
     owned_private_path_is_safe "$STACK/logs" "$EXPECTED_REQUEST_UID" \
         || fail_closed "orchestrator log directory ownership, mode, or ACL is unsafe"
 
     wallet_config="$STACK/config/wallets.yml"
-    [ -f "$wallet_config" ] && [ ! -L "$wallet_config" ] \
+    { [ -f "$wallet_config" ] && [ ! -L "$wallet_config" ]; } \
         || fail_closed "wallet configuration is missing or unsafe"
     [ "$(stat -c %u "$wallet_config")" -eq 0 ] \
         || fail_closed "wallet configuration is not root-owned"
